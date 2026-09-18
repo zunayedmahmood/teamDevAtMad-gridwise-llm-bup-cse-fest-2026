@@ -68,41 +68,41 @@ The implementation is architected around an uncompromising principle: **uncertai
 
 ```mermaid
 flowchart TD
-    A[Client Request: POST /optimize-energy] --> B[FastAPI Ingress & Request ID Generator]
-    B --> C[Pydantic v2 Strict Deserialization<br>extra='forbid', no coercion]
-    C -->|Malformed JSON / Schema Fail| E1[HTTP 400 Bad Request]
-    C --> D[Semantic Request Validator<br>len=24, unique hours, battery bounds]
-    D -->|Semantic Field Error| E2[HTTP 422 Unprocessable Entity]
-    D --> F[Canonicalize Request]
+    A["Client Request: POST /optimize-energy"] --> B["FastAPI Ingress & Request ID Generator"]
+    B --> C["Pydantic v2 Strict Deserialization<br>(extra='forbid', no coercion)"]
+    C -->|Malformed JSON / Schema Fail| E1["HTTP 400 Bad Request"]
+    C --> D["Semantic Request Validator<br>(len=24, unique hours, battery bounds)"]
+    D -->|Semantic Field Error| E2["HTTP 422 Unprocessable Entity"]
+    D --> F["Canonicalize Request"]
     
-    F --> G{Interpretation Cache Hit?<br>SHA-256 Signature}
-    G -->|Cache Hit| K[Validated Directives]
-    G -->|Cache Miss| H[Single-Flight Coalescer]
+    F --> G{"Interpretation Cache Hit?<br>(SHA-256 Signature)"}
+    G -->|Cache Hit| K["Validated Directives"]
+    G -->|Cache Miss| H["Single-Flight Coalescer"]
     
-    H --> I[OpenAI Responses API<br>Model: gpt-5.6-sol | reasoning: none]
-    I -->|JSON Schema Invalid / Exception| J{Retry Budget Remaining?}
-    J -->|Yes| I2[Fallback Model: gpt-6-astra<br>reasoning: low + recovery prompt]
-    J -->|No| E3[HTTP 500 LLM Provider Error]
+    H --> I["OpenAI Responses API<br>(Model: gpt-5.6-sol, reasoning: none)"]
+    I -->|JSON Schema Invalid / Error| J{"Retry Budget Remaining?"}
+    J -->|Yes| I2["Fallback Model: gpt-6-astra<br>(reasoning: low + recovery prompt)"]
+    J -->|No| E3["HTTP 500 LLM Provider Error"]
     
-    I --> L[Deterministic Directive Validator]
+    I --> L["Deterministic Directive Validator"]
     I2 --> L
     L -->|Valid| K
     L -->|Domain Validation Failed| J
     
-    K --> M[24-Hour Constraint Compiler<br>Hours normalization, overlap policies]
-    M --> N[SciPy HiGHS Linear Program<br>96 continuous variables, Dual Simplex]
-    N -->|Infeasible Constraints| E4[HTTP 422 Optimization Infeasible]
-    N -->|Optimal Solution Found| O[Clean Near-Zero Floats < 1e-7]
+    K --> M["24-Hour Constraint Compiler<br>(Hours normalization, overlap policies)"]
+    M --> N["SciPy HiGHS Linear Program<br>(96 continuous variables, Dual Simplex)"]
+    N -->|Infeasible Constraints| E4["HTTP 422 Optimization Infeasible"]
+    N -->|Optimal Solution Found| O["Clean Near-Zero Floats (&lt; 1e-7)"]
     
-    O --> P[Build Public HourlyPlanEntry Rows]
-    P --> Q[Independent Replay Engine<br>Verify battery limits, balance, E23=E0]
-    Q -->|Replay Mismatch / Violation| E5[HTTP 500 Plan Validation Error]
+    O --> P["Build Public HourlyPlanEntry Rows"]
+    P --> Q["Independent Replay Engine<br>(Verify battery limits, balance, E23=E0)"]
+    Q -->|Replay Mismatch / Violation| E5["HTTP 500 Plan Validation Error"]
     
-    Q --> R[Calculate Exact Totals & Peak Grid]
-    R --> S[Cross-Check Solver Cost == Plan Cost]
-    S --> T[Deterministic Human-Readable Summary]
-    T --> U[Serialize Strict EnergyResponse JSON]
-    U --> V[Client HTTP 200 OK Response]
+    Q --> R["Calculate Exact Totals & Peak Grid"]
+    R --> S["Cross-Check Solver Cost == Plan Cost"]
+    S --> T["Deterministic Human-Readable Summary"]
+    T --> U["Serialize Strict EnergyResponse JSON"]
+    U --> V["Client HTTP 200 OK Response"]
 
     classDef error fill:#ffebee,stroke:#c62828,stroke-width:2px;
     classDef success fill:#e8f8f5,stroke:#1abc9c,stroke-width:2px;
@@ -176,16 +176,16 @@ This guarantees that every returned schedule is reproducible, physically feasibl
 | `OPENAI_API_KEY` | *(None)* | Valid string | Required for optimization requests |
 | `OPENAI_MODEL` | `gpt-5.6-sol` | OpenAI model ID | Primary directive interpreter (`reasoning_effort=none`) |
 | `OPENAI_FALLBACK_MODEL` | `gpt-6-astra` | OpenAI model ID | Exceptional semantic-recovery model (`reasoning_effort=low`) |
-| `OPENAI_TIMEOUT_SECONDS` | `8.0` | $> 0$ float | Per-model-call network timeout |
-| `OPENAI_MAX_RETRIES` | `1` | $\ge 0$ int | Bounded SDK/network retry count |
+| `OPENAI_TIMEOUT_SECONDS` | `8.0` | > 0 (float) | Per-model-call network timeout |
+| `OPENAI_MAX_RETRIES` | `1` | &ge; 0 (int) | Bounded SDK/network retry count |
 | `APP_HOST` | `0.0.0.0` | IP string | Service bind host |
 | `APP_PORT` | `8000` | Port int | Service bind port |
 | `LOG_LEVEL` | `INFO` | Standard levels | Python logging level |
-| `OPTIMIZE_DEADLINE_SECONDS` | `25.0` | $0 < v \le 28.0$ | Overall `/optimize-energy` wall-clock deadline budget |
+| `OPTIMIZE_DEADLINE_SECONDS` | `25.0` | 0 < v &le; 28.0 | Overall `/optimize-energy` wall-clock deadline budget |
 | `DEBUG_TRACEBACKS` | `false` | `true`/`false` | Enable full exception tracebacks in server logs |
 | `INTERPRETATION_CACHE_ENABLED` | `true` | `true`/`false` | Enable bounded in-memory interpretation cache |
-| `INTERPRETATION_CACHE_MAX_ENTRIES` | `128` | $\ge 1$ int | Max LRU entries in interpretation cache |
-| `INTERPRETATION_CACHE_TTL_SECONDS` | `900.0` | $> 0$ float | Time-to-live for cached interpretations (seconds) |
+| `INTERPRETATION_CACHE_MAX_ENTRIES` | `128` | &ge; 1 (int) | Max LRU entries in interpretation cache |
+| `INTERPRETATION_CACHE_TTL_SECONDS` | `900.0` | > 0 (float) | Time-to-live for cached interpretations (seconds) |
 
 Copy the checked-in template to configure your local environment:
 ```bash
@@ -328,16 +328,16 @@ Because the official competition problem statement provides no battery efficienc
 
 | Directive Type | Parameters | Mathematical Definition |
 | :--- | :--- | :--- |
-| `solar_reduction` | `hours: list[int]`, `factor: float` ($0 \le f \le 1$) | $S_h^{\text{effective}} = f \cdot \text{solar}_h \quad \forall h \in \text{hours}$ |
-| `minimum_battery_reserve` | `hours: list[int]`, `minimum_energy_kwh: float` | $E_h \ge \text{minimum\_energy\_kwh} \quad \forall h \in \text{hours}$ |
+| `solar_reduction` | `hours: list[int]`, `factor: float` (0.0 &le; f &le; 1.0) | $S_h^{\text{effective}} = f \cdot S_h^{\text{forecast}} \quad \forall h \in \text{hours}$ |
+| `minimum_battery_reserve` | `hours: list[int]`, `minimum_energy_kwh: float` | $E_h \ge E_{\text{reserve}} \quad \forall h \in \text{hours}$ |
 | `no_charge_window` | `hours: list[int]` | $x_h \le 0 \quad \forall h \in \text{hours}$ |
 | `no_discharge_window` | `hours: list[int]` | $x_h \ge 0 \quad \forall h \in \text{hours}$ |
-| `max_grid_window` | `hours: list[int]`, `max_grid_kwh: float` | $g_h \le \text{max\_grid\_kwh} \quad \forall h \in \text{hours}$ |
+| `max_grid_window` | `hours: list[int]`, `max_grid_kwh: float` | $g_h \le G_{\text{max}} \quad \forall h \in \text{hours}$ |
 | `no_op` | `applies: false`, `structured_adjustment: null` | No operational impact |
 
 ### Interval & Overlap Policy
-- Intervals are start-inclusive and end-exclusive ($[H_{\text{start}}, H_{\text{end}})$).
-- Cross-midnight intervals wrap across hour 23 (e.g., 10 PM to 2 AM $\to [0, 1, 22, 23]$).
+- Intervals are start-inclusive and end-exclusive (e.g. `[start_hour, end_hour)`).
+- Cross-midnight intervals wrap across hour 23 (e.g., 10 PM to 2 AM &rarr; `[0, 1, 22, 23]`).
 - Overlapping `solar_reduction` directives take the **minimum factor** (most restrictive).
 - Overlapping `minimum_battery_reserve` directives take the **highest reserve**.
 - Overlapping `max_grid_window` directives take the **lowest cap**.
@@ -350,7 +350,7 @@ Because the official competition problem statement provides no battery efficienc
 Public API contract guardrails:
 - Models use strict Pydantic v2 with `extra="forbid"`, `strict=True`, and `allow_inf_nan=False`.
 - **HTTP 400 (Bad Request):** Triggered by malformed JSON body, missing fields, or invalid types.
-- **HTTP 422 (Unprocessable Entity):** Triggered by semantic validation failures (empty `scenario_id`, invalid battery parameters, hours $\ne$ 24, duplicate hours) or mathematically infeasible LP constraints.
+- **HTTP 422 (Unprocessable Entity):** Triggered by semantic validation failures (empty `scenario_id`, invalid battery parameters, hours &ne; 24, duplicate hours) or mathematically infeasible LP constraints.
 - **HTTP 500 (Internal Server Error):** Sanitized generic response emitted only upon unrecoverable provider outages or internal assertion failures.
 
 ### Numerical Policy
@@ -360,7 +360,7 @@ Solver precision is strictly preserved. Only values with absolute magnitude belo
 Before returning any schedule:
 1. The 24 hourly rows are parsed into independent domain structures.
 2. [`replay_and_validate`](file:///home/zunayed-mahmood/storage/Projects/BUP_Hackathon-preli/Codebase/app/optimizer/replay.py) validates hourly energy balance, battery capacity bounds, and inverter ratings using purely arithmetic business logic (no solver state).
-3. Financial totals (`total_cost_bdt`, `total_grid_kwh`, `peak_grid_kwh`) are recomputed directly from the replayed rows and cross-checked against the solver objective. If any discrepancy exceeds $0.01$, the plan is rejected.
+3. Financial totals (`total_cost_bdt`, `total_grid_kwh`, `peak_grid_kwh`) are recomputed directly from the replayed rows and cross-checked against the solver objective. If any discrepancy exceeds 0.01 BDT, the plan is rejected.
 
 ---
 
@@ -555,8 +555,8 @@ python scripts/smoke_test_deployment.py --base-url https://teamdevatmad-gridwise
 ## Known assumptions
 
 Where the official contest specification is silent, this implementation adheres to these formal engineering conventions:
-- **Time Intervals:** Start-inclusive and end-exclusive ($[H_{\text{start}}, H_{\text{end}})$).
-- **Cross-Midnight Windows:** Normalized into ascending hour sets (e.g. 10 PM to 2 AM $\to [0, 1, 22, 23]$).
+- **Time Intervals:** Start-inclusive and end-exclusive (e.g., `[start_hour, end_hour)`).
+- **Cross-Midnight Windows:** Normalized into ascending hour sets (e.g., 10 PM to 2 AM &rarr; `[0, 1, 22, 23]`).
 - **Solar Overlaps:** The minimum remaining solar factor (most restrictive) is enforced.
 - **Reserve Overlaps:** The highest minimum reserve is enforced.
 - **Grid Cap Overlaps:** The lowest grid cap is enforced.
