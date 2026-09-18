@@ -109,6 +109,7 @@ async def _optimize_within_deadline(
         key=lambda item: item.note_index,
     )
 
+    serialize_started = time.perf_counter()
     response = EnergyResponse(
         scenario_id=request.scenario_id,
         directive_interpretation=public_directives,
@@ -118,12 +119,13 @@ async def _optimize_within_deadline(
         peak_grid_kwh=clean_number(totals.peak_grid_kwh),
         plan_summary=build_summary(directives, totals),
     )
+    serialize_latency_ms = (time.perf_counter() - serialize_started) * 1000
 
     total_latency_ms = (time.perf_counter() - started) * 1000
     model = settings.openai_fallback_model if llm_attempts == 2 else settings.openai_model
     logger.info(
         "request_id=%s scenario_id=%s status=200 total_latency_ms=%.2f "
-        "llm_latency_ms=%.2f compile_latency_ms=%.2f solver_latency_ms=%.2f replay_latency_ms=%.2f "
+        "llm_latency_ms=%.2f compile_latency_ms=%.2f solver_latency_ms=%.2f replay_latency_ms=%.2f serialize_latency_ms=%.2f "
         "llm_attempts=%d model=%s directive_count=%d solver_status=success",
         request_id,
         canonical.scenario_id,
@@ -132,6 +134,7 @@ async def _optimize_within_deadline(
         compile_latency_ms,
         solver_latency_ms,
         replay_latency_ms,
+        serialize_latency_ms,
         llm_attempts,
         model,
         len(directives),

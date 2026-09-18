@@ -97,9 +97,8 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.exception(
-            "request_id=%s exception_category=%s detail=%s",
+            "request_id=%s exception_category=%s",
             getattr(request.state, "request_id", "-"),
             type(exc).__name__,
-            str(exc),
         )
         return JSONResponse(status_code=500, content={"detail": "Internal service error."})

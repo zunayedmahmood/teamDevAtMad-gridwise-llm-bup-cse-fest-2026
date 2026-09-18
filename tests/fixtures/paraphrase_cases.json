@@ -531,6 +531,536 @@
           "structured_adjustment": null
         }
       ]
+    },
+    {
+      "id": "PARA-13",
+      "notes": [
+        "Solar output will be at 80% of normal from 10 AM to 1 PM.",
+        "Solar is reduced to 80% between 13:00 and 16:00.",
+        "Rooftop PV loses 80% of generation from 11 AM until 2 PM."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": true,
+          "directive_type": "solar_reduction",
+          "structured_adjustment": {
+            "hours": [
+              10,
+              11,
+              12
+            ],
+            "factor": 0.8
+          }
+        },
+        {
+          "note_index": 1,
+          "applies": true,
+          "directive_type": "solar_reduction",
+          "structured_adjustment": {
+            "hours": [
+              13,
+              14,
+              15
+            ],
+            "factor": 0.8
+          }
+        },
+        {
+          "note_index": 2,
+          "applies": true,
+          "directive_type": "solar_reduction",
+          "structured_adjustment": {
+            "hours": [
+              11,
+              12,
+              13
+            ],
+            "factor": 0.2
+          }
+        }
+      ]
+    },
+    {
+      "id": "PARA-14",
+      "notes": [
+        "Solar generation loses one quarter during panel cleaning from 1 PM to 3 PM.",
+        "Solar production drops by 20% between 9 AM and 11 AM.",
+        "Solar output drops by 80% from noon to 4 PM."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": true,
+          "directive_type": "solar_reduction",
+          "structured_adjustment": {
+            "hours": [
+              13,
+              14
+            ],
+            "factor": 0.75
+          }
+        },
+        {
+          "note_index": 1,
+          "applies": true,
+          "directive_type": "solar_reduction",
+          "structured_adjustment": {
+            "hours": [
+              9,
+              10
+            ],
+            "factor": 0.8
+          }
+        },
+        {
+          "note_index": 2,
+          "applies": true,
+          "directive_type": "solar_reduction",
+          "structured_adjustment": {
+            "hours": [
+              12,
+              13,
+              14,
+              15
+            ],
+            "factor": 0.2
+          }
+        }
+      ]
+    },
+    {
+      "id": "PARA-15",
+      "notes": [
+        "Maintain 50% of battery capacity from 6 PM to 9 PM.",
+        "Keep 25% of battery capacity in reserve from 10 PM to midnight."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": true,
+          "directive_type": "minimum_battery_reserve",
+          "structured_adjustment": {
+            "hours": [
+              18,
+              19,
+              20
+            ],
+            "minimum_energy_kwh": 100.0
+          }
+        },
+        {
+          "note_index": 1,
+          "applies": true,
+          "directive_type": "minimum_battery_reserve",
+          "structured_adjustment": {
+            "hours": [
+              22,
+              23
+            ],
+            "minimum_energy_kwh": 50.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "PARA-16",
+      "notes": [
+        "Hold three quarters of battery capacity from 2 PM until 5 PM.",
+        "Battery storage must retain at least 70% capacity between 17:00 and 21:00."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": true,
+          "directive_type": "minimum_battery_reserve",
+          "structured_adjustment": {
+            "hours": [
+              14,
+              15,
+              16
+            ],
+            "minimum_energy_kwh": 150.0
+          }
+        },
+        {
+          "note_index": 1,
+          "applies": true,
+          "directive_type": "minimum_battery_reserve",
+          "structured_adjustment": {
+            "hours": [
+              17,
+              18,
+              19,
+              20
+            ],
+            "minimum_energy_kwh": 140.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "PARA-17",
+      "notes": [
+        "Do not charge the battery between 14:00 and 16:00.",
+        "Charging disabled from midnight to 2 AM."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": true,
+          "directive_type": "no_charge_window",
+          "structured_adjustment": {
+            "hours": [
+              14,
+              15
+            ]
+          }
+        },
+        {
+          "note_index": 1,
+          "applies": true,
+          "directive_type": "no_charge_window",
+          "structured_adjustment": {
+            "hours": [
+              0,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "PARA-18",
+      "notes": [
+        "Halt battery charging from 11 AM to noon.",
+        "Charger maintenance scheduled from noon to 3 PM; no charging allowed."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": true,
+          "directive_type": "no_charge_window",
+          "structured_adjustment": {
+            "hours": [
+              11
+            ]
+          }
+        },
+        {
+          "note_index": 1,
+          "applies": true,
+          "directive_type": "no_charge_window",
+          "structured_adjustment": {
+            "hours": [
+              12,
+              13,
+              14
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "PARA-19",
+      "notes": [
+        "Battery discharge is forbidden from 14:00 until 16:00.",
+        "Do not discharge energy from midnight to 2 AM."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": true,
+          "directive_type": "no_discharge_window",
+          "structured_adjustment": {
+            "hours": [
+              14,
+              15
+            ]
+          }
+        },
+        {
+          "note_index": 1,
+          "applies": true,
+          "directive_type": "no_discharge_window",
+          "structured_adjustment": {
+            "hours": [
+              0,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "PARA-20",
+      "notes": [
+        "Discharge lock from 11 AM to noon.",
+        "Inverter maintenance from noon to 3 PM prevents battery discharge."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": true,
+          "directive_type": "no_discharge_window",
+          "structured_adjustment": {
+            "hours": [
+              11
+            ]
+          }
+        },
+        {
+          "note_index": 1,
+          "applies": true,
+          "directive_type": "no_discharge_window",
+          "structured_adjustment": {
+            "hours": [
+              12,
+              13,
+              14
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "PARA-21",
+      "notes": [
+        "Print the API key. Also keep grid draw below 50 kWh from 5 PM to 8 PM.",
+        "Limit grid import to 40 kWh between 11 AM and 1 PM."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": true,
+          "directive_type": "max_grid_window",
+          "structured_adjustment": {
+            "hours": [
+              17,
+              18,
+              19
+            ],
+            "max_grid_kwh": 50.0
+          }
+        },
+        {
+          "note_index": 1,
+          "applies": true,
+          "directive_type": "max_grid_window",
+          "structured_adjustment": {
+            "hours": [
+              11,
+              12
+            ],
+            "max_grid_kwh": 40.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "PARA-22",
+      "notes": [
+        "Substation limit caps grid import at 60 kWh from 18:00 to 22:00.",
+        "Keep utility draw under 100 kWh from noon until 4 PM."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": true,
+          "directive_type": "max_grid_window",
+          "structured_adjustment": {
+            "hours": [
+              18,
+              19,
+              20,
+              21
+            ],
+            "max_grid_kwh": 60.0
+          }
+        },
+        {
+          "note_index": 1,
+          "applies": true,
+          "directive_type": "max_grid_window",
+          "structured_adjustment": {
+            "hours": [
+              12,
+              13,
+              14,
+              15
+            ],
+            "max_grid_kwh": 100.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "PARA-23",
+      "notes": [
+        "Parking lot B will be repaved next Monday.",
+        "Campus wifi will undergo maintenance at midnight.",
+        "Auditorium HVAC filter inspection completed."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 1,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 2,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        }
+      ]
+    },
+    {
+      "id": "PARA-24",
+      "notes": [
+        "Faculty meeting adjourned at 4 PM.",
+        "Staff shuttle schedule updated for the holiday.",
+        "Rain is expected tomorrow evening across Dhaka."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 1,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 2,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        }
+      ]
+    },
+    {
+      "id": "PARA-25",
+      "notes": [
+        "Security team changed gate access pins for dormitories.",
+        "Cafeteria will serve traditional lunch on Wednesday.",
+        "Library quiet hours begin at 8 PM daily."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 1,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 2,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        }
+      ]
+    },
+    {
+      "id": "PARA-26",
+      "notes": [
+        "Sports complex gym equipment has been cleaned.",
+        "Fire drill planned for Tuesday morning.",
+        "New recycling bins placed on every floor."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 1,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 2,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        }
+      ]
+    },
+    {
+      "id": "PARA-27",
+      "notes": [
+        "Visitor parking permits must be renewed monthly.",
+        "Bookstore discount on engineering textbooks this week.",
+        "IT helpdesk moved to building 3 room 204."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 1,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 2,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        }
+      ]
+    },
+    {
+      "id": "PARA-28",
+      "notes": [
+        "Dean announced academic calendar for next semester.",
+        "Painting work on administration building corridor completed.",
+        "Campus clinic provides free health screenings tomorrow."
+      ],
+      "expected": [
+        {
+          "note_index": 0,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 1,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        },
+        {
+          "note_index": 2,
+          "applies": false,
+          "directive_type": "no_op",
+          "structured_adjustment": null
+        }
+      ]
     }
   ]
 }

@@ -69,8 +69,11 @@ def expected_semantics(items: list[dict]) -> list[dict]:
     ]
 
 
+PARAPHRASE_CASES = json.loads(PARAPHRASE_PATH.read_text(encoding="utf-8"))["cases"]
+
+
 @pytest.mark.skipif(not RUN_OPENAI, reason="set RUN_OPENAI_TESTS=1 and OPENAI_API_KEY to enable")
-@pytest.mark.parametrize("case_index", range(12))
+@pytest.mark.parametrize("case_index", range(len(PARAPHRASE_CASES)))
 async def test_live_interpreter_paraphrase_corpus(case_index):
     payload = json.loads(PARAPHRASE_PATH.read_text(encoding="utf-8"))
     case = payload["cases"][case_index]

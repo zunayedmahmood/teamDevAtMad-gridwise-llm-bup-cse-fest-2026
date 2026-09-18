@@ -92,6 +92,7 @@ def test_optimization_log_contains_stage_metrics(valid_request_dict, no_op_batch
         "compile_latency_ms=",
         "solver_latency_ms=",
         "replay_latency_ms=",
+        "serialize_latency_ms=",
         "llm_attempts=1",
         "model=",
         "directive_count=1",
