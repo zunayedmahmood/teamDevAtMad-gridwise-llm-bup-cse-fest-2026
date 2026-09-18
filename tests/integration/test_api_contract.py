@@ -68,3 +68,63 @@ def test_nested_extra_fields_return_400(valid_request_dict, location):
     response = TestClient(app).post("/optimize-energy", json=valid_request_dict)
     assert response.status_code == 400
     assert response.json() == {"detail": "Invalid request body."}
+
+
+@pytest.mark.parametrize(
+    "payload,headers",
+    [
+        (None, None),
+        ("", {"content-type": "application/json"}),
+        ("{not-valid-json", {"content-type": "application/json"}),
+        ("[]", {"content-type": "application/json"}),
+        ("null", {"content-type": "application/json"}),
+        ('"primitive string"', {"content-type": "application/json"}),
+        ("12345", {"content-type": "application/json"}),
+    ],
+)
+def test_body_level_structural_failures_return_400_json(payload, headers):
+    client = TestClient(app)
+    if payload is None:
+        response = client.post("/optimize-energy")
+    else:
+        response = client.post("/optimize-energy", content=payload, headers=headers)
+    assert response.status_code == 400
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json() == {"detail": "Invalid request body."}
+
+
+def test_zero_capacity_battery_accepted(valid_request_dict, no_op_batch):
+    valid_request_dict["battery"] = {
+        "capacity_kwh": 0.0,
+        "initial_energy_kwh": 0.0,
+        "minimum_energy_kwh": 0.0,
+        "max_charge_kwh_per_hour": 0.0,
+        "max_discharge_kwh_per_hour": 0.0,
+    }
+    app.dependency_overrides[get_interpreter] = lambda: MappingInterpreter(
+        {"TEST-001": no_op_batch}
+    )
+    try:
+        response = TestClient(app).post("/optimize-energy", json=valid_request_dict)
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 200
+    plan = response.json()["hourly_plan"]
+    assert all(row["battery_action"] == "idle" for row in plan)
+    assert all(row["battery_kwh"] == 0.0 for row in plan)
+    assert all(row["battery_energy_after_kwh"] == 0.0 for row in plan)
+
+
+def test_float_hour_fails_structurally(valid_request_dict):
+    valid_request_dict["hours"][0]["hour"] = 0.0
+    response = TestClient(app).post("/optimize-energy", json=valid_request_dict)
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid request body."}
+
+
+def test_boolean_for_float_fails_structurally(valid_request_dict):
+    valid_request_dict["hours"][0]["demand_kwh"] = True
+    response = TestClient(app).post("/optimize-energy", json=valid_request_dict)
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid request body."}
+

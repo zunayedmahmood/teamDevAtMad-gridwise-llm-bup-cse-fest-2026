@@ -21,7 +21,7 @@ class HourInput(StrictModel):
 
 
 class BatteryInput(StrictModel):
-    capacity_kwh: float = Field(gt=0)
+    capacity_kwh: float = Field(ge=0)
     initial_energy_kwh: float = Field(ge=0)
     minimum_energy_kwh: float = Field(ge=0)
     max_charge_kwh_per_hour: float = Field(ge=0)

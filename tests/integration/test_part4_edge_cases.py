@@ -176,3 +176,60 @@ def test_cross_midnight_hour_membership(valid_request_dict):
     assert adjustment.hours == [0, 1, 22, 23]
     for hour in [0, 1, 22, 23]:
         assert response.hourly_plan[hour].battery_action != "charge"
+
+
+@pytest.mark.parametrize(
+    "name,hours_list",
+    [
+        ("23_to_01", [0, 23]),
+        ("midnight_to_2am", [0, 1]),
+        ("11pm_to_midnight", [23]),
+    ],
+)
+def test_cross_midnight_window_variations(valid_request_dict, name, hours_list):
+    request = base_case(valid_request_dict, f"EDGE-MIDNIGHT-{name}", ["Window test"])
+    response = run_case(
+        request,
+        [directive(0, DirectiveType.NO_DISCHARGE_WINDOW, hours=hours_list)],
+    )
+    adjustment = response.directive_interpretation[0].structured_adjustment
+    assert adjustment.hours == hours_list
+    for hour in hours_list:
+        assert response.hourly_plan[hour].battery_action != "discharge"
+
+
+def test_high_solar_with_curtailment(valid_request_dict):
+    # Solar exceeds demand across all midday hours, battery already full
+    request = base_case(valid_request_dict, "EDGE-HIGH-SOLAR", ["Normal operation"])
+    for hour in request["hours"]:
+        hour["demand_kwh"] = 50.0
+        hour["solar_kwh"] = 500.0  # Massive solar
+    request["battery"].update(
+        capacity_kwh=100.0,
+        initial_energy_kwh=100.0,
+        minimum_energy_kwh=20.0,
+    )
+    response = run_case(request, [directive(0, DirectiveType.NO_OP)])
+    # Solar used must never exceed effective solar, and unused solar is safely curtailed
+    assert all(row.solar_used_kwh <= 500.0 for row in response.hourly_plan)
+    assert response.total_grid_kwh == 0.0
+
+
+def test_zero_capacity_battery_full_schedule(valid_request_dict):
+    request = base_case(valid_request_dict, "EDGE-ZERO-CAP-PLAN", ["Zero capacity"])
+    request["battery"].update(
+        capacity_kwh=0.0,
+        initial_energy_kwh=0.0,
+        minimum_energy_kwh=0.0,
+        max_charge_kwh_per_hour=0.0,
+        max_discharge_kwh_per_hour=0.0,
+    )
+    response = run_case(request, [directive(0, DirectiveType.NO_OP)])
+    assert all(row.battery_action == "idle" for row in response.hourly_plan)
+    assert all(row.battery_kwh == 0.0 for row in response.hourly_plan)
+    assert all(row.battery_energy_after_kwh == 0.0 for row in response.hourly_plan)
+    for hour in range(24):
+        # With zero battery, grid + solar_used must equal demand
+        expected_grid = max(0.0, request["hours"][hour]["demand_kwh"] - request["hours"][hour]["solar_kwh"])
+        assert response.hourly_plan[hour].grid_kwh == pytest.approx(expected_grid, abs=1e-4)
+
