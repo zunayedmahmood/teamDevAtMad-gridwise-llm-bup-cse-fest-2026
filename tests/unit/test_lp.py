@@ -213,3 +213,20 @@ def test_pre_solver_rejects_negative_effective_solar(valid_request):
 
     with pytest.raises(InternalPlanValidationError, match="effective solar"):
         solve_lp(request, malformed)
+
+
+def test_unexpected_solver_status_raises_controlled_internal_error(valid_request, monkeypatch):
+    from types import SimpleNamespace
+
+    from app.optimizer import lp as lp_module
+
+    request = canonicalize_request(valid_request)
+    compiled = baseline_compiled(request)
+    monkeypatch.setattr(
+        lp_module,
+        "linprog",
+        lambda **kwargs: SimpleNamespace(success=False, status=4, message="solver failed"),
+    )
+
+    with pytest.raises(InternalPlanValidationError, match="status 4"):
+        solve_lp(request, compiled)

@@ -51,7 +51,12 @@ def replay_and_validate(
         values = [row.grid_kwh, row.solar_used_kwh, row.battery_kwh, row.battery_energy_after_kwh]
         if not all(math.isfinite(value) for value in values):
             _fail(f"hour {hour}: non-finite public plan value")
-        if row.grid_kwh < -tol or row.solar_used_kwh < -tol or row.battery_kwh < -tol:
+        if (
+            row.grid_kwh < -tol
+            or row.solar_used_kwh < -tol
+            or row.battery_kwh < -tol
+            or row.battery_energy_after_kwh < -tol
+        ):
             _fail(f"hour {hour}: negative public energy value")
         if row.solar_used_kwh > compiled.effective_solar_kwh[hour] + tol:
             _fail(f"hour {hour}: solar usage exceeds effective solar")

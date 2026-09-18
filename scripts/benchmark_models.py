@@ -147,20 +147,22 @@ async def async_main(args) -> int:
 
     print(
         f"{'MODEL':<20} {'TYPE':>7} {'HOURS':>7} {'NUM':>7} {'FULL':>7} "
-        f"{'FAIL':>6} {'AVG_S':>8} {'P95_S':>8}"
+        f"{'FAIL%':>7} {'P50_S':>8} {'P95_S':>8}"
     )
     all_ok = True
     for model in args.models:
         metrics, latencies = await run_model(model, public_cases, paraphrases)
         values = np.asarray(latencies, dtype=float)
-        avg = float(values.mean()) if len(values) else float("nan")
+        p50 = float(np.percentile(values, 50)) if len(values) else float("nan")
         p95 = float(np.percentile(values, 95)) if len(values) else float("nan")
+        call_count = len(public_cases) + len(paraphrases["cases"])
+        failure_rate = (metrics.failed_calls / call_count) if call_count else 0.0
         print(
             f"{model:<20} {pct(metrics.type_ok, metrics.notes):>7} "
             f"{pct(metrics.hours_ok, metrics.notes):>7} "
             f"{pct(metrics.numeric_ok, metrics.notes):>7} "
             f"{pct(metrics.full_ok, metrics.notes):>7} "
-            f"{metrics.failed_calls:>6} {avg:>8.3f} {p95:>8.3f}"
+            f"{failure_rate:>6.1%} {p50:>8.3f} {p95:>8.3f}"
         )
         all_ok &= metrics.full_ok == metrics.notes and metrics.failed_calls == 0
     return 0 if all_ok else 1

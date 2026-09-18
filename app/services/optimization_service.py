@@ -3,13 +3,19 @@ import logging
 import time
 
 from app.config import settings
-from app.errors import DirectiveValidationError, LLMInterpretationError, LLMProviderError
+from app.errors import (
+    DirectiveValidationError,
+    InternalPlanValidationError,
+    LLMInterpretationError,
+    LLMProviderError,
+)
 from app.interpreter.client import DirectiveInterpreter
 from app.interpreter.validator import to_public_interpretation, validate_llm_batch
 from app.models.internal import CanonicalRequest, Totals, ValidatedDirective, canonicalize_request
 from app.models.request import EnergyRequest, validate_request_semantics
 from app.models.response import EnergyResponse
 from app.optimizer.compiler import compile_constraints
+from app.optimizer.numeric import VALIDATION_TOLERANCE, clean_number
 from app.optimizer.lp import solve_lp
 from app.optimizer.replay import build_hourly_plan, calculate_totals, replay_and_validate
 
@@ -17,7 +23,6 @@ logger = logging.getLogger("gridwise.optimization")
 
 
 def build_summary(
-    request: CanonicalRequest,
     directives: list[ValidatedDirective],
     totals: Totals,
 ) -> str:
@@ -82,7 +87,9 @@ async def _optimize_within_deadline(
             ) from second_error
     llm_latency_ms = (time.perf_counter() - llm_started) * 1000
 
+    compile_started = time.perf_counter()
     compiled = compile_constraints(canonical, directives)
+    compile_latency_ms = (time.perf_counter() - compile_started) * 1000
 
     solver_started = time.perf_counter()
     solution = solve_lp(canonical, compiled)
@@ -94,6 +101,8 @@ async def _optimize_within_deadline(
     replay_and_validate(canonical, compiled, hourly_plan)
     replay_latency_ms = (time.perf_counter() - replay_started) * 1000
     totals = calculate_totals(canonical, hourly_plan)
+    if abs(totals.total_cost_bdt - solution.objective_value) > VALIDATION_TOLERANCE:
+        raise InternalPlanValidationError("recomputed cost does not match solver objective")
 
     public_directives = sorted(
         [to_public_interpretation(directive) for directive in directives],
@@ -104,22 +113,23 @@ async def _optimize_within_deadline(
         scenario_id=request.scenario_id,
         directive_interpretation=public_directives,
         hourly_plan=hourly_plan,
-        total_grid_kwh=totals.total_grid_kwh,
-        total_cost_bdt=totals.total_cost_bdt,
-        peak_grid_kwh=totals.peak_grid_kwh,
-        plan_summary=build_summary(canonical, directives, totals),
+        total_grid_kwh=clean_number(totals.total_grid_kwh),
+        total_cost_bdt=clean_number(totals.total_cost_bdt),
+        peak_grid_kwh=clean_number(totals.peak_grid_kwh),
+        plan_summary=build_summary(directives, totals),
     )
 
     total_latency_ms = (time.perf_counter() - started) * 1000
     model = settings.openai_fallback_model if llm_attempts == 2 else settings.openai_model
     logger.info(
-        "request_id=%s scenario_id=%s status=success total_latency_ms=%.2f "
-        "llm_latency_ms=%.2f solver_latency_ms=%.2f replay_latency_ms=%.2f "
+        "request_id=%s scenario_id=%s status=200 total_latency_ms=%.2f "
+        "llm_latency_ms=%.2f compile_latency_ms=%.2f solver_latency_ms=%.2f replay_latency_ms=%.2f "
         "llm_attempts=%d model=%s directive_count=%d solver_status=success",
         request_id,
         canonical.scenario_id,
         total_latency_ms,
         llm_latency_ms,
+        compile_latency_ms,
         solver_latency_ms,
         replay_latency_ms,
         llm_attempts,
