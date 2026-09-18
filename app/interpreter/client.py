@@ -4,7 +4,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.config import settings
-from app.errors import LLMInterpretationError, LLMProviderError
+from app.errors import LLMConfigurationError, LLMInterpretationError, LLMProviderError
 from app.interpreter.prompt import DIRECTIVE_INTERPRETER_PROMPT
 from app.models.internal import CanonicalRequest
 from app.models.llm import LLMDirectiveBatch
@@ -26,11 +26,15 @@ class DirectiveInterpreter:
         if self._client is not None:
             return self._client
         if not settings.openai_api_key:
-            raise LLMProviderError("OPENAI_API_KEY is not configured")
+            raise LLMConfigurationError("OPENAI_API_KEY is not configured")
+        if not settings.openai_model:
+            raise LLMConfigurationError("OPENAI_MODEL is not configured")
+        if not settings.openai_fallback_model:
+            raise LLMConfigurationError("OPENAI_FALLBACK_MODEL is not configured")
         try:
             from openai import AsyncOpenAI
         except ImportError as exc:
-            raise LLMProviderError("OpenAI SDK is not installed") from exc
+            raise LLMConfigurationError("OpenAI SDK is not installed") from exc
 
         self._client = AsyncOpenAI(
             api_key=settings.openai_api_key,

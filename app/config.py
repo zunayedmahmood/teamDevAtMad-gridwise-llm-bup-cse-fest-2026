@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     optimize_deadline_seconds: float = 25.0
+    debug_tracebacks: bool = False
+
+    interpretation_cache_enabled: bool = True
+    interpretation_cache_max_entries: int = 128
+    interpretation_cache_ttl_seconds: float = 900.0
 
     @field_validator("optimize_deadline_seconds")
     @classmethod

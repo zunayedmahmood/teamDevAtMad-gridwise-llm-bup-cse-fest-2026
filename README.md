@@ -85,12 +85,16 @@ This makes the mathematical result reproducible and independently checkable even
 | `OPENAI_API_KEY` | empty | Required for optimization requests |
 | `OPENAI_MODEL` | `gpt-5.6-sol` | Primary directive interpreter |
 | `OPENAI_FALLBACK_MODEL` | `gpt-6-astra` | Exceptional semantic-recovery model |
-| `OPENAI_TIMEOUT_SECONDS` | `5` | Per-model-call timeout |
+| `OPENAI_TIMEOUT_SECONDS` | `8.0` | Per-model-call timeout |
 | `OPENAI_MAX_RETRIES` | `1` | Bounded SDK/network retry count |
 | `APP_HOST` | `0.0.0.0` | Service bind host |
 | `APP_PORT` | `8000` | Service bind port |
 | `LOG_LEVEL` | `INFO` | Python log level |
-| `OPTIMIZE_DEADLINE_SECONDS` | `25` | Overall `/optimize-energy` deadline |
+| `OPTIMIZE_DEADLINE_SECONDS` | `25.0` | Overall `/optimize-energy` deadline |
+| `DEBUG_TRACEBACKS` | `false` | Enable full exception tracebacks in logs |
+| `INTERPRETATION_CACHE_ENABLED` | `true` | Enable bounded interpretation cache |
+| `INTERPRETATION_CACHE_MAX_ENTRIES` | `128` | Max LRU entries in interpretation cache |
+| `INTERPRETATION_CACHE_TTL_SECONDS` | `900.0` | Time-to-live for cached interpretations |
 
 Copy the checked-in template and add the real key locally:
 
@@ -409,13 +413,13 @@ Where the official challenge material is silent, this implementation uses these 
 - charge/discharge prohibitions combine by union;
 - overlapping `solar_reduction` directives use the **minimum remaining-solar factor**;
 - battery transitions are lossless because no efficiency parameter exists in the challenge input;
-- no interpretation cache or regex fallback is used.
+- optional bounded in-memory interpretation cache and single-flight deduplication (no regex fallback is used).
 
 If organizers clarify different solar-overlap semantics, only the compiler policy and its tests should change.
 
 ## Numerical policy
 
-Solver precision is preserved. Only values with absolute magnitude below `1e-9` are cleaned to `0.0`. Replay uses the internal validation tolerance before the response is built. Public numeric values are JSON numbers, never formatted numeric strings.
+Solver precision is preserved. Only values with absolute magnitude below `1e-7` are cleaned to `0.0`. Replay uses the internal validation tolerance before the response is built. Public numeric values are JSON numbers, never formatted numeric strings.
 
 ## Observability
 

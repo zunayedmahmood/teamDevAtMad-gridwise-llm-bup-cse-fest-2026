@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.config import settings
 from app.errors import (
     DirectiveValidationError,
     InternalPlanValidationError,
@@ -96,9 +97,19 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
-        logger.exception(
-            "request_id=%s exception_category=%s",
-            getattr(request.state, "request_id", "-"),
-            type(exc).__name__,
-        )
+        request_id = getattr(request.state, "request_id", "-")
+        if settings.debug_tracebacks:
+            logger.exception(
+                "request_id=%s exception_category=%s",
+                request_id,
+                type(exc).__name__,
+            )
+        else:
+            logger.error(
+                "request_id=%s method=%s path=%s exception_category=%s detail=unhandled_error",
+                request_id,
+                request.method,
+                request.url.path,
+                type(exc).__name__,
+            )
         return JSONResponse(status_code=500, content={"detail": "Internal service error."})

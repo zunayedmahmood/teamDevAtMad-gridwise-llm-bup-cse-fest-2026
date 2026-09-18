@@ -3,12 +3,22 @@ from pathlib import Path
 
 import pytest
 
+from app.interpreter.cache import interpretation_cache, single_flight
 from app.models.llm import LLMDirective, LLMDirectiveBatch
 from app.models.request import EnergyRequest
 from app.models.response import DirectiveType
 
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "public_sample_cases.json"
+
+
+@pytest.fixture(autouse=True)
+def _reset_cache_and_single_flight():
+    interpretation_cache.clear()
+    single_flight.clear()
+    yield
+    interpretation_cache.clear()
+    single_flight.clear()
 
 
 @pytest.fixture(scope="session")

@@ -18,7 +18,7 @@ class ProviderFailureInterpreter:
         raise LLMProviderError("provider unavailable")
 
     async def recover(self, request, previous, validation_error):
-        raise AssertionError("provider errors should not enter semantic recovery")
+        raise LLMProviderError("provider unavailable")
 
 
 class SlowInterpreter:
@@ -179,8 +179,9 @@ class CountingNoOpInterpreter:
 
 
 def test_one_hundred_requests_are_stateless_and_all_reach_interpreter(
-    valid_request_dict, no_op_batch
+    valid_request_dict, no_op_batch, monkeypatch
 ):
+    monkeypatch.setattr(settings, "interpretation_cache_enabled", False)
     interpreter = CountingNoOpInterpreter(no_op_batch)
     app.dependency_overrides[get_interpreter] = lambda: interpreter
     try:
@@ -199,12 +200,13 @@ def test_one_hundred_requests_are_stateless_and_all_reach_interpreter(
 
 @pytest.mark.asyncio
 async def test_ten_concurrent_requests_do_not_cross_contaminate(
-    valid_request_dict, no_op_batch
+    valid_request_dict, no_op_batch, monkeypatch
 ):
     import copy
 
     import httpx
 
+    monkeypatch.setattr(settings, "interpretation_cache_enabled", False)
     interpreter = CountingNoOpInterpreter(no_op_batch)
     app.dependency_overrides[get_interpreter] = lambda: interpreter
     try:

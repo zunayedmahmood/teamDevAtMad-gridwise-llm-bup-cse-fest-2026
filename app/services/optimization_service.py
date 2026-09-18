@@ -6,9 +6,11 @@ from app.config import settings
 from app.errors import (
     DirectiveValidationError,
     InternalPlanValidationError,
+    LLMConfigurationError,
     LLMInterpretationError,
     LLMProviderError,
 )
+from app.interpreter.cache import compute_cache_key, interpretation_cache, single_flight
 from app.interpreter.client import DirectiveInterpreter
 from app.interpreter.validator import to_public_interpretation, validate_llm_batch
 from app.models.internal import CanonicalRequest, Totals, ValidatedDirective, canonicalize_request
@@ -20,6 +22,7 @@ from app.optimizer.lp import solve_lp
 from app.optimizer.replay import build_hourly_plan, calculate_totals, replay_and_validate
 
 logger = logging.getLogger("gridwise.optimization")
+cache_logger = logging.getLogger("gridwise.cache")
 
 
 def build_summary(
@@ -36,6 +39,97 @@ def build_summary(
     )
 
 
+async def _execute_interpretation(
+    canonical: CanonicalRequest,
+    interpreter: DirectiveInterpreter,
+    deadline_at: float,
+    request_id: str,
+    worst_case_recovery_seconds: float,
+) -> tuple[list[ValidatedDirective], int, bool]:
+    llm_attempts = 1
+    recovered = False
+    try:
+        raw_batch = await interpreter.interpret(canonical)
+    except LLMConfigurationError:
+        raise
+    except (LLMInterpretationError, LLMProviderError) as first_error:
+        remaining = deadline_at - time.monotonic()
+        if remaining <= worst_case_recovery_seconds:
+            logger.warning(
+                "request_id=%s fallback_skipped_insufficient_budget remaining=%.2f required=%.2f",
+                request_id,
+                remaining,
+                worst_case_recovery_seconds,
+            )
+            if isinstance(first_error, LLMProviderError):
+                raise LLMProviderError("Directive recovery budget exhausted") from first_error
+            raise LLMInterpretationError(
+                "Directive recovery budget exhausted"
+            ) from first_error
+        logger.info(
+            "request_id=%s primary_llm_failed category=%s fallback_llm_started remaining=%.2f",
+            request_id,
+            type(first_error).__name__,
+            remaining,
+        )
+        llm_attempts = 2
+        recovered = True
+        try:
+            raw_batch = await interpreter.recover(canonical, None, first_error)
+            logger.info("request_id=%s fallback_llm_succeeded", request_id)
+        except Exception as fallback_exc:
+            logger.warning(
+                "request_id=%s fallback_llm_failed category=%s",
+                request_id,
+                type(fallback_exc).__name__,
+            )
+            raise
+
+    try:
+        directives = validate_llm_batch(raw_batch, canonical)
+    except DirectiveValidationError as first_error:
+        if recovered:
+            raise LLMInterpretationError(
+                "Directive interpretation failed deterministic validation"
+            ) from first_error
+        remaining = deadline_at - time.monotonic()
+        if remaining <= worst_case_recovery_seconds:
+            logger.warning(
+                "request_id=%s fallback_skipped_insufficient_budget remaining=%.2f required=%.2f",
+                request_id,
+                remaining,
+                worst_case_recovery_seconds,
+            )
+            raise LLMInterpretationError(
+                "Directive recovery budget exhausted"
+            ) from first_error
+        logger.info(
+            "request_id=%s primary_validation_failed fallback_llm_started remaining=%.2f",
+            request_id,
+            remaining,
+        )
+        llm_attempts = 2
+        recovered = True
+        try:
+            repaired = await interpreter.recover(canonical, raw_batch, first_error)
+            logger.info("request_id=%s fallback_llm_succeeded", request_id)
+        except Exception as fallback_exc:
+            logger.warning(
+                "request_id=%s fallback_llm_failed category=%s",
+                request_id,
+                type(fallback_exc).__name__,
+            )
+            raise
+        try:
+            directives = validate_llm_batch(repaired, canonical)
+        except DirectiveValidationError as second_error:
+            raise LLMInterpretationError(
+                "Directive interpretation failed deterministic validation"
+            ) from second_error
+
+    return directives, llm_attempts, recovered
+
+
 async def _optimize_within_deadline(
     request: EnergyRequest,
     interpreter: DirectiveInterpreter,
@@ -50,41 +144,46 @@ async def _optimize_within_deadline(
         settings.openai_timeout_seconds * (settings.openai_max_retries + 1) + 0.5
     )
 
-    llm_attempts = 1
-    recovered = False
     llm_started = time.perf_counter()
-    try:
-        raw_batch = await interpreter.interpret(canonical)
-    except LLMInterpretationError as first_error:
-        remaining = deadline_at - time.monotonic()
-        if remaining <= worst_case_recovery_seconds:
-            raise LLMInterpretationError(
-                "Directive recovery budget exhausted"
-            ) from first_error
-        llm_attempts = 2
-        recovered = True
-        raw_batch = await interpreter.recover(canonical, None, first_error)
+    cache_key = compute_cache_key(canonical)
+    cached = await interpretation_cache.get(cache_key)
 
-    try:
-        directives = validate_llm_batch(raw_batch, canonical)
-    except DirectiveValidationError as first_error:
-        if recovered:
-            raise LLMInterpretationError(
-                "Directive interpretation failed deterministic validation"
-            ) from first_error
-        remaining = deadline_at - time.monotonic()
-        if remaining <= worst_case_recovery_seconds:
-            raise LLMInterpretationError(
-                "Directive recovery budget exhausted"
-            ) from first_error
-        llm_attempts = 2
-        repaired = await interpreter.recover(canonical, raw_batch, first_error)
-        try:
-            directives = validate_llm_batch(repaired, canonical)
-        except DirectiveValidationError as second_error:
-            raise LLMInterpretationError(
-                "Directive interpretation failed deterministic validation"
-            ) from second_error
+    if cached is not None:
+        cache_logger.info(
+            "request_id=%s interpretation_cache_hit=true key=%s",
+            request_id,
+            cache_key[:12],
+        )
+        directives = cached
+        llm_attempts = 0
+    else:
+        cache_logger.info(
+            "request_id=%s interpretation_cache_hit=false key=%s",
+            request_id,
+            cache_key[:12],
+        )
+        if settings.interpretation_cache_enabled:
+            directives, llm_attempts, recovered = await single_flight.execute(
+                cache_key,
+                lambda: _execute_interpretation(
+                    canonical,
+                    interpreter,
+                    deadline_at,
+                    request_id,
+                    worst_case_recovery_seconds,
+                ),
+            )
+            if not recovered:
+                await interpretation_cache.set(cache_key, directives)
+        else:
+            directives, llm_attempts, recovered = await _execute_interpretation(
+                canonical,
+                interpreter,
+                deadline_at,
+                request_id,
+                worst_case_recovery_seconds,
+            )
+
     llm_latency_ms = (time.perf_counter() - llm_started) * 1000
 
     compile_started = time.perf_counter()

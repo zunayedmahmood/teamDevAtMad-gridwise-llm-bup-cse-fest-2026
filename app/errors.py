@@ -10,6 +10,10 @@ class LLMProviderError(GridWiseError):
     pass
 
 
+class LLMConfigurationError(LLMProviderError):
+    pass
+
+
 class LLMInterpretationError(GridWiseError):
     pass
 
